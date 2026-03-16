@@ -62,6 +62,35 @@ Important:
 - `codex app-server` itself still listens on `ws://...`
 - secure public access is achieved through nginx, not by making Codex listen on `wss://`
 
+## Android Build Setup
+
+Prerequisites:
+
+- Java 17
+- Android SDK + build tools for API 35
+- Gradle 8.x (or use `apps/android/gradlew`)
+
+Typical Linux setup summary:
+
+- Install Java 17 and Android SDK command-line tools or Android Studio
+- Make sure `platform-tools`, `platforms;android-35`, and `build-tools;35.0.0` are installed
+- Export `ANDROID_HOME` and `ANDROID_SDK_ROOT` to your SDK path
+- If you want Gradle cache outside your home directory, export `GRADLE_USER_HOME`
+
+Example environment:
+
+```bash
+export ANDROID_HOME=/opt/android-sdk
+export ANDROID_SDK_ROOT=/opt/android-sdk
+export GRADLE_USER_HOME=/tmp/gradle-home
+```
+
+Typical APK build:
+
+```bash
+./apps/android/gradlew -p apps/android :app:assembleRemoteOnlyDebug
+```
+
 ## Screenshots (iPhone 17 Pro)
 
 | Dark (Default) | Light |
@@ -216,27 +245,6 @@ Prerequisites:
 - Java 17
 - Android SDK + build tools for API 35
 - Gradle 8.x (or use `apps/android/gradlew`)
-
-Typical Linux setup summary:
-
-- Install Java 17 and Android SDK command-line tools or Android Studio
-- Make sure `platform-tools`, `platforms;android-35`, and `build-tools;35.0.0` are installed
-- Export `ANDROID_HOME` and `ANDROID_SDK_ROOT` to your SDK path
-- If you want Gradle cache outside your home directory, export `GRADLE_USER_HOME`
-
-Example environment:
-
-```bash
-export ANDROID_HOME=/opt/android-sdk
-export ANDROID_SDK_ROOT=/opt/android-sdk
-export GRADLE_USER_HOME=/tmp/gradle-home
-```
-
-Typical APK build:
-
-```bash
-./apps/android/gradlew -p apps/android :app:assembleRemoteOnlyDebug
-```
 
 Android remote Codex transport now accepts full websocket URLs for manual server entry:
 
