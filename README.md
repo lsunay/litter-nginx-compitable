@@ -4,7 +4,63 @@
   <img src="apps/ios/Sources/Litter/Resources/brand_logo.png" alt="litter logo" width="180" />
 </p>
 
-`litter` is a native iOS + Android client for Codex.
+`litter-nginx-compitable` is a fork of `litter` focused on secure remote Codex access from Android through nginx-reverse-proxied `wss://` endpoints.
+
+This fork keeps the upstream project foundation, but adjusts the Android remote connection flow for deployments where:
+
+- Codex runs privately on `ws://IP:PORT`
+- nginx terminates TLS
+- clients connect through public `wss://domain/...`
+
+## What This Fork Changes
+
+This fork mainly improves Android compatibility for reverse-proxied Codex servers:
+
+- supports manual Codex connection using full websocket URLs
+- supports `wss://` transport on Android
+- preserves URL scheme, path, and query parameters
+- works better with nginx / Cloudflare style deployments
+- allows secure remote access without exposing plain `ws://` directly to the internet
+
+## Remote Deployment Model
+
+Recommended deployment layout:
+
+- Codex app server runs privately:
+  - `ws://127.0.0.1:8390`
+  - or `ws://private-ip:8390`
+- nginx exposes a public secure endpoint:
+  - `wss://codex.example.com`
+  - or `wss://codex.example.com/ws`
+- Android connects only to the public `wss://` address
+
+## Android Manual Connection Examples
+
+Examples of Codex manual server input:
+
+- `wss://codex.example.com`
+- `wss://codex.example.com/ws`
+- `wss://codex.example.com/ws?token=YOUR_TOKEN`
+
+If a full URL is entered, the Android client can use the scheme/path/query directly.
+
+## Security Notes
+
+This fork is intended for safer remote access patterns than plain public `ws://`.
+
+Recommended setup:
+
+- TLS terminated by nginx
+- `wss://` only for public access
+- Codex upstream not exposed directly to the internet
+- optional token-based protection at nginx
+- optional Cloudflare proxy in front of nginx
+- private upstream networking via WireGuard / LAN / localhost
+
+Important:
+
+- `codex app-server` itself still listens on `ws://...`
+- secure public access is achieved through nginx, not by making Codex listen on `wss://`
 
 ## Screenshots (iPhone 17 Pro)
 
