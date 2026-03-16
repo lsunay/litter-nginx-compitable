@@ -217,10 +217,6 @@ Prerequisites:
 - Android SDK + build tools for API 35
 - Gradle 8.x (or use `apps/android/gradlew`)
 
-Debian system-wide setup without using `/home` for the Android SDK:
-
-- See [apps/android/docs/debian-android-build.md](/home/levent/projects/litter/apps/android/docs/debian-android-build.md)
-
 Android remote Codex transport now accepts full websocket URLs for manual server entry:
 
 - `ws://host:port`
