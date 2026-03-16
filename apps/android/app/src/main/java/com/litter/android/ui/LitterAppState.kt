@@ -55,6 +55,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.io.Closeable
+import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
 
 private const val UI_PREFERENCES_NAME = "litter_ui_prefs"
@@ -1407,7 +1408,7 @@ class DefaultLitterAppState(
     override fun connectManualServer() {
         val snapshot = _uiState.value.discovery
         val host = snapshot.manualHost.trim()
-        val port = snapshot.manualPort.trim().toIntOrNull()
+        val port = manualServerPort(snapshot.manualBackendKind, host, snapshot.manualPort)
         val reconfiguringServerId = snapshot.reconfiguringServerId?.trim()?.takeIf { it.isNotEmpty() }
         if (host.isEmpty() || port == null || port <= 0) {
             setUiError("Enter a valid host and port")
@@ -2084,6 +2085,30 @@ class DefaultLitterAppState(
             }
         }
         return normalized
+    }
+
+    private fun manualServerPort(
+        backendKind: BackendKind,
+        host: String,
+        rawPort: String,
+    ): Int? {
+        val explicitPort = rawPort.trim().toIntOrNull()?.takeIf { it > 0 }
+        if (explicitPort != null) {
+            return explicitPort
+        }
+        if (backendKind != BackendKind.CODEX || !host.contains("://")) {
+            return null
+        }
+
+        val uri = runCatching { URI(host.trim()) }.getOrNull() ?: return null
+        if (uri.port > 0) {
+            return uri.port
+        }
+        return when (uri.scheme?.trim()?.lowercase()) {
+            "wss" -> 443
+            "ws" -> 80
+            else -> null
+        }
     }
 
     private fun DiscoveredServer.toUi(): UiDiscoveredServer =

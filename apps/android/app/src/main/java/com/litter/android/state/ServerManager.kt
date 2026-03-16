@@ -809,7 +809,7 @@ class ServerManager(
                     host =
                         normalizeServerHost(
                             server.host,
-                            preserveScheme = server.backendKind == BackendKind.OPENCODE,
+                            preserveScheme = server.host.contains("://"),
                         ),
                 )
             }
@@ -1073,7 +1073,48 @@ class ServerManager(
     }
 
     private fun websocketUrl(server: ServerConfig): String {
-        val host = normalizeServerHost(server.host)
+        val rawHost = server.host.trim()
+        if (rawHost.contains("://")) {
+            return runCatching {
+                val uri = URI(rawHost)
+                val scheme = uri.scheme?.trim()?.lowercase().orEmpty().ifEmpty { "ws" }
+                val normalizedScheme =
+                    when (scheme) {
+                        "ws", "wss" -> scheme
+                        else -> "ws"
+                    }
+                val host = uri.host?.trim()?.ifEmpty { null }
+                    ?: uri.rawAuthority?.substringAfterLast('@')?.trim()?.substringBefore(':')?.ifEmpty { null }
+                    ?: throw IllegalStateException("Invalid websocket host: $rawHost")
+                val port =
+                    when {
+                        uri.port > 0 -> uri.port
+                        server.port > 0 -> server.port
+                        normalizedScheme == "wss" -> 443
+                        else -> 80
+                    }
+                val normalizedHost =
+                    if (host.contains(':') && !host.startsWith("[") && !host.endsWith("]")) {
+                        "[$host]"
+                    } else {
+                        host
+                    }
+                val path = uri.rawPath?.trim()?.ifEmpty { "/" } ?: "/"
+                val query = uri.rawQuery?.trim()?.takeIf { it.isNotEmpty() }
+                buildString {
+                    append("$normalizedScheme://$normalizedHost:$port")
+                    append(path)
+                    if (query != null) {
+                        append('?')
+                        append(query)
+                    }
+                }
+            }.getOrElse {
+                throw IllegalStateException("Invalid websocket URL: $rawHost", it)
+            }
+        }
+
+        val host = normalizeServerHost(rawHost)
         val normalizedHost =
             if (host.contains(':') && !host.startsWith("[") && !host.endsWith("]")) {
                 "[$host]"
@@ -1106,10 +1147,21 @@ class ServerManager(
                         ?.trimEnd('/')
                         ?.takeIf { it.isNotEmpty() && it != "/" }
                         .orEmpty()
+                val query =
+                    uri.rawQuery
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+                        .orEmpty()
                 if (authority.isEmpty()) {
                     host.trimEnd('/')
                 } else {
-                    "$scheme://$authority$path"
+                    buildString {
+                        append("$scheme://$authority$path")
+                        if (query.isNotEmpty()) {
+                            append('?')
+                            append(query)
+                        }
+                    }
                 }
             }.getOrDefault(host.trimEnd('/'))
         }
@@ -7050,7 +7102,7 @@ class ServerManager(
             val host =
                 normalizeServerHost(
                     item.optString("host"),
-                    preserveScheme = kind == BackendKind.OPENCODE,
+                    preserveScheme = item.optString("host").contains("://"),
                 )
             val port = item.optInt("port", 0)
             val source = item.optString("source").trim()

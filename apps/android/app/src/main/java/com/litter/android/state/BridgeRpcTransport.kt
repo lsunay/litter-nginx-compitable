@@ -17,6 +17,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 
 // Canonical app-runtime websocket transport used by ServerManager for user-facing RPC flows.
 // The core bridge module has a separate websocket client for on-device bridge bootstrap only.
@@ -72,13 +74,24 @@ internal class BridgeRpcTransport(
 
             val uri = URI(url)
             val host = uri.host ?: throw IllegalStateException("Invalid websocket host for URL: $url")
-            val port = if (uri.port > 0) uri.port else 80
+            val scheme = uri.scheme?.trim()?.lowercase().orEmpty().ifEmpty { "ws" }
+            val port = when {
+                uri.port > 0 -> uri.port
+                scheme == "wss" -> 443
+                else -> 80
+            }
             val path = buildPath(uri)
 
-            val sock = Socket()
+            val tcpSocket = Socket()
             try {
-                sock.connect(InetSocketAddress(host, port), (timeoutSeconds * 1000L).toInt())
-                sock.soTimeout = (timeoutSeconds * 1000L).toInt()
+                tcpSocket.connect(InetSocketAddress(host, port), (timeoutSeconds * 1000L).toInt())
+                tcpSocket.soTimeout = (timeoutSeconds * 1000L).toInt()
+                val sock = upgradeToTlsSocketIfNeeded(uri, tcpSocket, host, port).also {
+                    it.soTimeout = (timeoutSeconds * 1000L).toInt()
+                    if (it is SSLSocket) {
+                        it.startHandshake()
+                    }
+                }
                 val inStream = sock.getInputStream()
                 val outStream = sock.getOutputStream()
 
@@ -101,7 +114,7 @@ internal class BridgeRpcTransport(
                 startReaderLocked(connectedEpoch)
                 return true
             } catch (error: Throwable) {
-                runCatching { sock.close() }
+                runCatching { tcpSocket.close() }
                 throw IllegalStateException("Failed websocket connect/handshake at $url", error)
             }
         }
@@ -591,6 +604,25 @@ internal class BridgeRpcTransport(
         val base = if (uri.path.isNullOrEmpty()) "/" else uri.path
         val query = uri.rawQuery
         return if (query.isNullOrEmpty()) base else "$base?$query"
+    }
+
+    private fun upgradeToTlsSocketIfNeeded(
+        uri: URI,
+        socket: Socket,
+        host: String,
+        port: Int,
+    ): Socket {
+        val scheme = uri.scheme?.trim()?.lowercase().orEmpty().ifEmpty { "ws" }
+        if (scheme != "wss") {
+            return socket
+        }
+
+        val sslFactory = SSLSocketFactory.getDefault() as SSLSocketFactory
+        val sslSocket = sslFactory.createSocket(socket, host, port, true) as SSLSocket
+        val params = sslSocket.sslParameters
+        params.endpointIdentificationAlgorithm = "HTTPS"
+        sslSocket.sslParameters = params
+        return sslSocket
     }
 
     private data class Frame(

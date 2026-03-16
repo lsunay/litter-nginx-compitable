@@ -6403,7 +6403,10 @@ private fun DiscoverySheet(
         val manualConnectFocusRequester = remember { FocusRequester() }
         var editingField by remember { mutableStateOf<ManualField?>(null) }
         var editingValue by remember { mutableStateOf("") }
-        val canConnect = state.manualHost.isNotBlank() && state.manualPort.isNotBlank()
+        val canConnect =
+            state.manualHost.isNotBlank() &&
+                (state.manualPort.isNotBlank() ||
+                    (state.manualBackendKind == BackendKind.CODEX && state.manualHost.contains("://")))
         val firstServerId = state.servers.firstOrNull()?.id
 
         BackHandler(enabled = editingField != null) {
@@ -6690,9 +6693,17 @@ private fun DiscoverySheet(
                                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
                                                     verticalArrangement = Arrangement.spacedBy(2.dp),
                                                 ) {
-                                                    Text("Host", color = LitterTheme.textSecondary, style = MaterialTheme.typography.labelLarge)
                                                     Text(
-                                                        if (state.manualHost.isBlank()) "Set host" else state.manualHost,
+                                                        if (state.manualBackendKind == BackendKind.CODEX) "Host or URL" else "Host",
+                                                        color = LitterTheme.textSecondary,
+                                                        style = MaterialTheme.typography.labelLarge,
+                                                    )
+                                                    Text(
+                                                        if (state.manualHost.isBlank()) {
+                                                            if (state.manualBackendKind == BackendKind.CODEX) "Set host or wss:// URL" else "Set host"
+                                                        } else {
+                                                            state.manualHost
+                                                        },
                                                         color = if (state.manualHost.isBlank()) LitterTheme.textMuted else LitterTheme.textPrimary,
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis,
@@ -6979,7 +6990,10 @@ private fun DiscoverySheet(
                     OutlinedTextField(
                         value = state.manualHost,
                         onValueChange = onManualHostChanged,
-                        label = { Text("Host") },
+                        label = { Text(if (state.manualBackendKind == BackendKind.CODEX) "Host or URL" else "Host") },
+                        placeholder = {
+                            Text(if (state.manualBackendKind == BackendKind.CODEX) "wss://example.com/ws" else "Set host")
+                        },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                     )
@@ -7020,7 +7034,10 @@ private fun DiscoverySheet(
                 Button(
                     onClick = onConnectManual,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = state.manualHost.isNotBlank() && state.manualPort.isNotBlank(),
+                    enabled =
+                        state.manualHost.isNotBlank() &&
+                            (state.manualPort.isNotBlank() ||
+                                (state.manualBackendKind == BackendKind.CODEX && state.manualHost.contains("://"))),
                 ) {
                     Text("Connect Manual Server")
                 }

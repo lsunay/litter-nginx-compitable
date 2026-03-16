@@ -16,6 +16,13 @@ Native Android app scaffold with module boundaries aligned to iOS feature flows:
 - On-device bootstrap transport: `core/bridge/src/main/java/com/litter/android/core/bridge/JsonRpcWebSocketClient.kt` via `CodexRpcClient`.
   - Used to start/connect the embedded on-device bridge server and support legacy callers.
 
+Manual remote Codex entry now supports full websocket URLs:
+
+- `ws://host:port`
+- `wss://host[:port][/path][?query]`
+
+`wss://` is handled at the Android client + reverse proxy layer. `codex app-server` itself still listens on `ws://...`.
+
 ## Runtime Startup Flavors
 
 - `onDeviceDebug` / `onDeviceRelease`
